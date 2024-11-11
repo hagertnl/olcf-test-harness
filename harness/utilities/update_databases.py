@@ -201,7 +201,7 @@ def check_job_status(slurm_jobid_lst):
                     logger.doErrorLogging(f"Couldn't find JobID in sacct record. Skipping")
                     continue
                 elif fields['state'] == 'RESIZING':
-                    logger.doInfoLogging(f"Detected RESIZING for job {fields['jobid']}. RESIZING is from node failure + SLURM '--no-kill'. There should be another record in sacct for this job. Skipping")
+                    logger.doDebugLogging(f"Detected RESIZING for job {fields['jobid']}. RESIZING is from node failure + SLURM '--no-kill'. There should be another record in sacct for this job. Skipping")
                     # Add a field to this job that shows it had/survived a node failure
                     node_failed_jobids.append(fields['jobid'])
                     continue
@@ -286,6 +286,7 @@ for db in db_logger.enabled_backends:
             if args.dry_run:
                 logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
             else:
+                logger.doInfoLogging(f"Logging build timeout for test {entry['test_id']} to {db.url}.")
                 single_db_logger.log_event(entry)
         elif slurm_data[entry['job_id']]['state'] in slurm_job_state_codes['pending']:
             # Then this job is still running/waiting in queue, we can skip
@@ -322,6 +323,7 @@ for db in db_logger.enabled_backends:
             if args.dry_run:
                 logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
             else:
+                logger.doInfoLogging(f"Logging cancelled job, app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
                 single_db_logger.log_event(entry)
         elif slurm_data[entry['job_id']]['state'] in slurm_job_state_codes['node_fail']:
             logger.doDebugLogging(f"Found node failure from: {entry['job_id']}")
@@ -338,6 +340,7 @@ for db in db_logger.enabled_backends:
             if args.dry_run:
                 logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
             else:
+                logger.doInfoLogging(f"Logging NODE_FAIL'd job, app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
                 single_db_logger.log_event(entry)
         elif slurm_data[entry['job_id']]['state'] in slurm_job_state_codes['timeout']:
             sent += 1
@@ -359,6 +362,7 @@ for db in db_logger.enabled_backends:
             if args.dry_run:
                 logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
             else:
+                logger.doInfoLogging(f"Logging timed-out job, app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
                 single_db_logger.log_event(entry)
         elif slurm_data[entry['job_id']]['state'] in slurm_job_state_codes['success'] or \
              slurm_data[entry['job_id']]['state'] in slurm_job_state_codes['fail']:
@@ -372,6 +376,7 @@ for db in db_logger.enabled_backends:
             if not (os.path.exists(status_file_path) and os.path.exists(entry['run_archive'])):
                 logger.doDebugLogging(f"Status file and Run_Archive paths for test {entry['test_id']} do not exist ({entry['run_archive']}). Skipping.")
                 continue
+            logger.doInfoLogging(f"Logging test that completed the Slurm job but did not log to the database, app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
             sent += 1
             os.chdir(status_file_path)
             found_checkend = False
@@ -381,7 +386,7 @@ for db in db_logger.enabled_backends:
                     # Then get the info from the status file & log it to the database
                     event_info = get_status_info_from_file(status_file_name)
                     # This is a global call for all enabled databases -- re-posting an event to InfluxDB doesn't hurt
-                    logger.doInfoLogging(f"Logging event {status_file_name} for test {entry['test_id']}")
+                    logger.doInfoLogging(f"Logging event {status_file_name} for app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
                     if args.dry_run:
                         logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
                     else:
@@ -395,7 +400,7 @@ for db in db_logger.enabled_backends:
                                                           logger=logger,
                                                           tag=entry['test_id'],
                                                           db_logger=single_db_logger)
-                    logger.doInfoLogging(f"Attempting to log metric and node health information {status_file_name} for test {entry['test_id']}")
+                    logger.doDebugLogging(f"Attempting to log metric and node health information {status_file_name} for test {entry['test_id']} to {db.url}.")
                     # This is also effectively a global call for all enabled databases
                     if args.dry_run:
                         logger.doCriticalLogging(f"DRY-RUN: would be calling subtest.run_db_extensions() for test_id {entry['test_id']}")
@@ -404,7 +409,7 @@ for db in db_logger.enabled_backends:
                             logger.doWarningLogging(f"Logging metric & node health data to databases failed for test_id {entry['test_id']} (job {entry['job_id']})")
             if not found_checkend:
                 # If the test didn't log a check_end event, we simulate one here
-                logger.doInfoLogging(f"Job {entry['job_id']} in state {slurm_data[entry['job_id']]['state']} did not complete a check_end event. Logging check_end with fail check code.")
+                logger.doDebugLogging(f"Job {entry['job_id']} in state {slurm_data[entry['job_id']]['state']} did not complete a check_end event. Logging check_end with fail check code.")
                 entry['output_txt'] = f"Job exited in state {slurm_data[entry['job_id']]['state']} at {slurm_data[entry['job_id']]['end']}, after running for {slurm_data[entry['job_id']]['elapsed']}."
                 entry['event_time'] = slurm_time_to_harness_time(slurm_data[entry['job_id']]['end'])
                 entry['event_type'] = StatusFile.EVENT_DICT[StatusFile.EVENT_CHECK_END][1]
@@ -417,6 +422,7 @@ for db in db_logger.enabled_backends:
                 if args.dry_run:
                     logger.doCriticalLogging(f"DRY-RUN: {','.join([ f'{key}={value}' for key, value in entry.items()])}")
                 else:
+                    logger.doInfoLogging(f"Logging failure exit code for job that exited without logging the check_end event, app={entry['app']}, test={entry['test']}, test_id={entry['test_id']}, jobid={entry['job_id']} to {db.url}.")
                     single_db_logger.log_event(entry)
             os.chdir(cur_dir)
         else:
