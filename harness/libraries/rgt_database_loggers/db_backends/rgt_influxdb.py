@@ -482,7 +482,7 @@ class InfluxDBLogger(BaseDBLogger):
 
         self.__logger.doDebugLogging(f"Sending message to InfluxDB: {message}")
         # We do not catch the exception here -- it will be caught in the database manager class
-        r = requests.post(full_url, data=message, headers=headers)
+        r = requests.post(full_url, data=message.encode('utf-8'), headers=headers)
 
         if r.status_code == 200 or r.status_code == 204:
             self.__logger.doDebugLogging(f"Logged to InfluxDB successfully ({r.status_code}, {r.reason}): {message}")
