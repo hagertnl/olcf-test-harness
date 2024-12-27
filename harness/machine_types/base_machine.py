@@ -481,7 +481,7 @@ class BaseMachine(metaclass=ABCMeta):
                     dst=path_to_build_directory,
                     symlinks=True, dirs_exist_ok=True)
             else:
-                proc = subprocess.run(['cp', '-rT', path_to_test_source, path_to_build_directory])
+                proc = subprocess.run(['cp', '-rT', os.path.realpath(path_to_test_source), path_to_build_directory])
                 if not proc.returncode == 0:
                     self.logger.doCriticalLogging(f"Encountered an error copying a test's Source directory from {path_to_test_source} to {path_to_build_directory}")
                     return proc.returncode
