@@ -479,7 +479,7 @@ class BaseMachine(metaclass=ABCMeta):
             if sys.version_info[0] == 3 and sys.version_info[1] >= 8:
                 shutil.copytree(src=path_to_test_source,
                     dst=path_to_build_directory,
-                    symlinks=True, dirs_exist_ok=True)
+                    symlinks=False, dirs_exist_ok=True)
             else:
                 proc = subprocess.run(['cp', '-rTL', os.path.realpath(path_to_test_source), path_to_build_directory])
                 if not proc.returncode == 0:
